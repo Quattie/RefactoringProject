@@ -5,145 +5,13 @@
 #include <array>
 #include <iomanip>
 
+#include "bank.hpp"
+#include "store.hpp"
+
+
 using namespace std;
 
-enum EventType {
-    ARRIVAL, DEPARTURE
-};
-
-typedef struct {
-    double eventTime;
-    double duration;
-    int line;
-    double waitTime;
-    double totalServiceTime = 0;
-    EventType event;
-
-} Event;
-
-struct compareEventTime {
-    bool operator()(const Event &lhs, const Event &rhs) const {
-        return lhs.eventTime > rhs.eventTime;
-    }
-};
-
-const int simLength = 43200;
-
-class Bank {
-private:
-    priority_queue<Event,vector<Event>,compareEventTime> eventQueue;
-    int tellersAvailable = 6;
-    queue<Event> bankQueue;
-    double currentTime = 0;
-
-public:
-    void addEvent(Event & event);
-    void addBankQueueCustomer(Event & event);
-    void simulate();
-    vector<double> serviceTimes;
-};
-
-void Bank::addEvent(Event & event) {
-    eventQueue.push(event);
-}
-
-void Bank::addBankQueueCustomer(Event & event) {
-    bankQueue.push(event);
-    event.waitTime = currentTime;
-}
-
-void Bank::simulate() {
-    while (!eventQueue.empty()) {
-        Event nextEvent = eventQueue.top();
-        currentTime = nextEvent.eventTime;
-        if (currentTime > simLength) {
-            break;
-        }
-        eventQueue.pop();
-        switch (nextEvent.event) {
-            case ARRIVAL:
-                if (tellersAvailable) {
-                    nextEvent.totalServiceTime = nextEvent.duration;
-                    nextEvent.eventTime = currentTime + nextEvent.duration;
-                    nextEvent.event = DEPARTURE;
-                    addEvent(nextEvent);
-                    tellersAvailable--;
-                } else {
-                    addBankQueueCustomer(nextEvent);
-                }
-                break;
-            case DEPARTURE:
-                if(!bankQueue.empty()) {
-                    Event nextCustomer = bankQueue.front();
-                    bankQueue.pop();
-
-                    nextCustomer.totalServiceTime = currentTime - nextCustomer.eventTime + nextCustomer.duration;
-                    serviceTimes.push_back(nextEvent.totalServiceTime);
-
-                    nextCustomer.eventTime = currentTime + nextEvent.duration;
-                    nextCustomer.event = DEPARTURE;
-                    addEvent(nextCustomer);
-                } else {
-                    serviceTimes.push_back(nextEvent.totalServiceTime);
-                    tellersAvailable++;
-                }
-                break;
-        }
-    }
-}
-class Store {
-private:
-    priority_queue<Event,vector<Event>,compareEventTime> eventQueue;
-    array<double, 6> cashiers;
-    double currentTime = 0;
-public:
-    void addEvent(Event event);
-    void simulate();
-    vector<double> serviceTimes;
-};
-
-void Store::addEvent(Event event) {
-    eventQueue.push(event);
-}
-
-double smallestIndex(const array<double, 6> &array) {
-    int index = 0;
-    for(int i = 1; i < array.size(); i++) {
-        if(array.at(index) > array.at(i))
-            index = i;
-    }
-    return index;
-}
-
-// run the simulation
-void Store::simulate() {
-    while (!eventQueue.empty()) {
-        Event nextEvent = eventQueue.top();
-        currentTime = nextEvent.eventTime;
-        if (currentTime > simLength) {
-            break;
-        }
-        eventQueue.pop();
-        int shortestLine;
-        switch (nextEvent.event) {
-            case ARRIVAL:
-                shortestLine = smallestIndex(cashiers);
-                nextEvent.line = shortestLine;
-                nextEvent.totalServiceTime = cashiers.at(shortestLine) + nextEvent.duration;
-                cashiers.at(shortestLine) += nextEvent.duration;
-                nextEvent.eventTime = currentTime + cashiers.at(shortestLine);
-                nextEvent.event = DEPARTURE;
-                addEvent(nextEvent);
-                break;
-            case DEPARTURE:
-                cashiers.at(nextEvent.line) -= nextEvent.duration;
-                serviceTimes.push_back(nextEvent.totalServiceTime);
-                break;
-        }
-    }
-}
-
-double fRand(double fMin, double fMax){
+double getRandomNumber(double fMin, double fMax){
     double f = (double)rand() / RAND_MAX;
     return fMin + f * (fMax - fMin);
 }
@@ -198,8 +66,8 @@ int main(int argc, char *argv[]) {
     chance *= 100;
 
     for (int i = 0; i < simLength; i++) {
-        double st = fRand(0, maxCustServTime);
-        if (fRand(0, 100) < chance) {
+        double st = getRandomNumber(0, maxCustServTime);
+        if (getRandomNumber(0, 100) < chance) {
             Event myEvent;
             myEvent.duration = st;
             myEvent.eventTime = i / 60;
